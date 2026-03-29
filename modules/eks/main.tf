@@ -1,2 +1,7 @@
-# EKS module entry point.
-# Resources are split across cluster.tf, node_groups.tf, and irsa.tf.
+locals {
+  name_prefix  = "${var.project}-${var.environment}"
+  cluster_name = "${local.name_prefix}-eks"
+  common_tags = {
+    Module = "eks"
+  }
+}

@@ -1,2 +1,6 @@
-# ECS module entry point.
-# Resources are split across cluster.tf and services.tf.
+locals {
+  name_prefix = "${var.project}-${var.environment}"
+  common_tags = {
+    Module = "ecs"
+  }
+}

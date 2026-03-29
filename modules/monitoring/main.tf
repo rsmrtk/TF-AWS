@@ -1,2 +1,8 @@
-# Monitoring module entry point.
-# Resources are split across sns.tf, alarms.tf, and dashboard.tf.
+locals {
+  name_prefix = "${var.project}-${var.environment}"
+  create_sns  = length(var.alarm_email_endpoints) > 0
+
+  common_tags = {
+    Module = "monitoring"
+  }
+}

@@ -1,2 +1,6 @@
-# IAM module entry point.
-# Resources are split by service: ec2.tf, ecs.tf, lambda.tf.
+locals {
+  name_prefix = "${var.project}-${var.environment}"
+  common_tags = {
+    Module = "iam"
+  }
+}
