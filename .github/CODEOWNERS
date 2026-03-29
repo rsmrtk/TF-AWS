@@ -1,0 +1,13 @@
+# Default owners for the entire repository
+* @rsmrtk
+
+# Infrastructure modules require review from the platform team
+/modules/ @rsmrtk
+/global/  @rsmrtk
+
+# Environment configurations
+/environments/prod/ @rsmrtk
+/environments/staging/ @rsmrtk
+
+# CI/CD workflows
+/.github/ @rsmrtk

@@ -1,0 +1,18 @@
+branch: main
+compact: true
+directory:
+  - .
+download-external-modules: false
+evaluate-variables: true
+framework:
+  - terraform
+output:
+  - cli
+  - junitxml
+quiet: false
+skip-check:
+  # Skip checks that conflict with project design decisions
+  - CKV_AWS_144  # S3 cross-region replication (not needed for all buckets)
+  - CKV_AWS_145  # S3 KMS encryption (we use SSE-S3 for state bucket)
+  - CKV2_AWS_62  # S3 event notifications (not needed for all buckets)
+soft-fail: false
