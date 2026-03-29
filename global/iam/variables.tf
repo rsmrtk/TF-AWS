@@ -27,12 +27,6 @@ variable "github_repo" {
   default     = "TF-AWS"
 }
 
-variable "environments" {
-  description = "List of environments to create roles for."
-  type        = list(string)
-  default     = ["dev", "staging", "prod"]
-}
-
 variable "state_bucket_arns" {
   description = "Map of environment to state bucket ARNs."
   type        = map(string)

@@ -51,7 +51,6 @@ module "security" {
   project     = local.project
   environment = local.environment
   vpc_id      = module.networking.vpc_id
-  vpc_cidr    = module.networking.vpc_cidr
 }
 
 module "iam" {
@@ -67,7 +66,6 @@ module "rds" {
 
   project              = local.project
   environment          = local.environment
-  vpc_id               = module.networking.vpc_id
   data_subnet_ids      = module.networking.data_subnet_ids
   db_security_group_id = module.security.db_security_group_id
   instance_class       = "db.t3.micro"
@@ -75,9 +73,11 @@ module "rds" {
 }
 
 output "vpc_id" {
-  value = module.networking.vpc_id
+  description = "ID of the VPC created by the networking module."
+  value       = module.networking.vpc_id
 }
 
 output "rds_endpoint" {
-  value = module.rds.db_instance_endpoint
+  description = "Connection endpoint for the RDS instance."
+  value       = module.rds.db_instance_endpoint
 }

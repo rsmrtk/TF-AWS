@@ -67,6 +67,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
     id     = "cleanup-old-versions"
     status = "Enabled"
 
+    filter {} # apply to all objects
+
     noncurrent_version_expiration {
       noncurrent_days = 90
     }

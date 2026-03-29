@@ -1,7 +1,3 @@
-################################################################################
-# Internet Gateway
-################################################################################
-
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
@@ -14,10 +10,7 @@ resource "aws_internet_gateway" "this" {
   )
 }
 
-################################################################################
-# NAT Gateway(s)
-################################################################################
-
+# NAT gateway(s): one shared in dev, one per AZ in prod
 resource "aws_eip" "nat" {
   count = local.nat_gateway_count
 

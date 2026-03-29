@@ -1,7 +1,3 @@
-###############################################################################
-# ALB Outputs
-###############################################################################
-
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer."
   value       = aws_lb.this.dns_name
@@ -17,18 +13,10 @@ output "alb_arn" {
   value       = aws_lb.this.arn
 }
 
-###############################################################################
-# Target Group Outputs
-###############################################################################
-
 output "target_group_arn" {
   description = "ARN of the ALB target group."
   value       = aws_lb_target_group.this.arn
 }
-
-###############################################################################
-# ASG Outputs
-###############################################################################
 
 output "asg_name" {
   description = "Name of the Auto Scaling Group."
@@ -39,10 +27,6 @@ output "asg_arn" {
   description = "ARN of the Auto Scaling Group."
   value       = aws_autoscaling_group.this.arn
 }
-
-###############################################################################
-# Launch Template Outputs
-###############################################################################
 
 output "launch_template_id" {
   description = "ID of the launch template."

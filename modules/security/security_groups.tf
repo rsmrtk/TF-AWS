@@ -1,9 +1,7 @@
-################################################################################
-# ALB Security Group
-################################################################################
+# --- ALB ---
 
 resource "aws_security_group" "alb" {
-  name        = "${local.name_prefix}-alb-sg"
+  name_prefix = "${local.name_prefix}-alb-sg-"
   description = "Security group for the Application Load Balancer"
   vpc_id      = var.vpc_id
 
@@ -51,12 +49,10 @@ resource "aws_vpc_security_group_egress_rule" "alb_all" {
   tags = merge(var.tags, local.common_tags, { Name = "${local.name_prefix}-alb-egress" })
 }
 
-################################################################################
-# Application Security Group
-################################################################################
+# --- Application ---
 
 resource "aws_security_group" "app" {
-  name        = "${local.name_prefix}-app-sg"
+  name_prefix = "${local.name_prefix}-app-sg-"
   description = "Security group for application instances"
   vpc_id      = var.vpc_id
 
@@ -95,12 +91,12 @@ resource "aws_vpc_security_group_egress_rule" "app_all" {
   tags = merge(var.tags, local.common_tags, { Name = "${local.name_prefix}-app-egress" })
 }
 
-################################################################################
-# Database Security Group
-################################################################################
+# --- Database ---
+# Egress intentionally omitted: the DB should not initiate outbound connections.
+# If replication or external calls are needed, add specific rules.
 
 resource "aws_security_group" "db" {
-  name        = "${local.name_prefix}-db-sg"
+  name_prefix = "${local.name_prefix}-db-sg-"
   description = "Security group for database instances"
   vpc_id      = var.vpc_id
 
@@ -117,43 +113,22 @@ resource "aws_security_group" "db" {
   }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "db_postgresql" {
+# Single ingress rule driven by var.db_port -- no more opening both MySQL and PG.
+resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   security_group_id            = aws_security_group.db.id
-  description                  = "Allow PostgreSQL from application security group"
-  from_port                    = 5432
-  to_port                      = 5432
+  description                  = "Allow DB traffic from application SG on port ${var.db_port}"
+  from_port                    = var.db_port
+  to_port                      = var.db_port
   ip_protocol                  = "tcp"
   referenced_security_group_id = aws_security_group.app.id
 
-  tags = merge(var.tags, local.common_tags, { Name = "${local.name_prefix}-db-postgresql-ingress" })
+  tags = merge(var.tags, local.common_tags, { Name = "${local.name_prefix}-db-ingress" })
 }
 
-resource "aws_vpc_security_group_ingress_rule" "db_mysql" {
-  security_group_id            = aws_security_group.db.id
-  description                  = "Allow MySQL from application security group"
-  from_port                    = 3306
-  to_port                      = 3306
-  ip_protocol                  = "tcp"
-  referenced_security_group_id = aws_security_group.app.id
-
-  tags = merge(var.tags, local.common_tags, { Name = "${local.name_prefix}-db-mysql-ingress" })
-}
-
-resource "aws_vpc_security_group_egress_rule" "db_all" {
-  security_group_id = aws_security_group.db.id
-  description       = "Allow all outbound traffic"
-  ip_protocol       = "-1"
-  cidr_ipv4         = "0.0.0.0/0"
-
-  tags = merge(var.tags, local.common_tags, { Name = "${local.name_prefix}-db-egress" })
-}
-
-################################################################################
-# Bastion Security Group
-################################################################################
+# --- Bastion ---
 
 resource "aws_security_group" "bastion" {
-  name        = "${local.name_prefix}-bastion-sg"
+  name_prefix = "${local.name_prefix}-bastion-sg-"
   description = "Security group for bastion host"
   vpc_id      = var.vpc_id
 

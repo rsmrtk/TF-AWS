@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]{2,21}$", var.project))
-    error_message = "Project must be 2-21 characters, lowercase alphanumeric and hyphens only."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 chars, start with a letter, end with a letter or digit, lowercase alphanumeric and hyphens only."
   }
 }
 
@@ -19,7 +19,7 @@ variable "environment" {
 }
 
 variable "repositories" {
-  description = "Map of ECR repositories to create. The key is the service/repository name."
+  description = "Map of ECR repositories to create. Key is the service/image name."
   type = map(object({
     image_tag_mutability = optional(string, "IMMUTABLE")
     scan_on_push         = optional(bool, true)
@@ -29,7 +29,7 @@ variable "repositories" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of the KMS key for ECR encryption. If empty, AES256 encryption is used."
+  description = "KMS key ARN for ECR encryption. Falls back to AES256 when empty."
   type        = string
   default     = ""
 }

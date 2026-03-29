@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.project))
-    error_message = "Project must start with a lowercase letter, contain only lowercase alphanumeric characters and hyphens, and be 2-21 characters long."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 chars, start with a letter, end with a letter or digit, only lowercase alphanumeric and hyphens."
   }
 }
 
@@ -63,18 +63,10 @@ variable "cluster_addons" {
     version = optional(string, null)
   }))
   default = {
-    vpc-cni = {
-      version = null
-    }
-    coredns = {
-      version = null
-    }
-    kube-proxy = {
-      version = null
-    }
-    aws-ebs-csi-driver = {
-      version = null
-    }
+    vpc-cni            = { version = null }
+    coredns            = { version = null }
+    kube-proxy         = { version = null }
+    aws-ebs-csi-driver = { version = null }
   }
 }
 
@@ -85,15 +77,17 @@ variable "enable_cluster_encryption" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of the KMS key for cluster encryption. If empty and encryption is enabled, a new key is not created (must be provided)."
+  description = "ARN of the KMS key for cluster encryption. Required when enable_cluster_encryption is true."
   type        = string
   default     = ""
 }
 
+# Defaults to false -- production clusters should not expose the API publicly.
+# Override in dev/staging if you need kubectl access without a VPN.
 variable "cluster_endpoint_public_access" {
   description = "Whether the EKS cluster API server endpoint is publicly accessible."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "cluster_endpoint_private_access" {

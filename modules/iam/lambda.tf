@@ -1,7 +1,3 @@
-################################################################################
-# Lambda Execution Role
-################################################################################
-
 data "aws_iam_policy_document" "lambda_assume_role" {
   count = var.create_lambda_role ? 1 : 0
 
@@ -25,9 +21,7 @@ resource "aws_iam_role" "lambda" {
   tags = merge(local.common_tags, var.tags)
 }
 
-################################################################################
-# Lambda Managed Policy Attachments
-################################################################################
+# Basics + VPC access so Lambdas can reach RDS/ElastiCache in private subnets.
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   count = var.create_lambda_role ? 1 : 0
@@ -43,9 +37,7 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-################################################################################
-# Lambda Custom Policy – S3 and KMS Access
-################################################################################
+# Optional S3 + KMS policy, only when there's something to grant.
 
 data "aws_iam_policy_document" "lambda_custom" {
   count = var.create_lambda_role && (length(var.s3_bucket_arns) > 0 || var.kms_key_arn != "") ? 1 : 0

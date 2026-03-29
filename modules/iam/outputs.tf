@@ -1,6 +1,4 @@
-################################################################################
-# EC2 Outputs
-################################################################################
+# EC2
 
 output "ec2_role_arn" {
   description = "ARN of the EC2 IAM role."
@@ -22,9 +20,7 @@ output "ec2_instance_profile_arn" {
   value       = try(aws_iam_instance_profile.ec2[0].arn, null)
 }
 
-################################################################################
-# ECS Outputs
-################################################################################
+# ECS
 
 output "ecs_task_role_arn" {
   description = "ARN of the ECS task IAM role."
@@ -36,9 +32,7 @@ output "ecs_execution_role_arn" {
   value       = try(aws_iam_role.ecs_execution[0].arn, null)
 }
 
-################################################################################
-# Lambda Outputs
-################################################################################
+# Lambda
 
 output "lambda_role_arn" {
   description = "ARN of the Lambda execution IAM role."

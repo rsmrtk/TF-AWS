@@ -1,7 +1,3 @@
-################################################################################
-# EC2 IAM Role and Instance Profile
-################################################################################
-
 data "aws_iam_policy_document" "ec2_assume_role" {
   count = var.create_ec2_role ? 1 : 0
 
@@ -34,9 +30,7 @@ resource "aws_iam_instance_profile" "ec2" {
   tags = merge(local.common_tags, var.tags)
 }
 
-################################################################################
-# EC2 Managed Policy Attachments
-################################################################################
+# SSM + CloudWatch -- standard managed policies for any EC2 fleet.
 
 resource "aws_iam_role_policy_attachment" "ec2_ssm" {
   count = var.create_ec2_role ? 1 : 0
@@ -52,9 +46,7 @@ resource "aws_iam_role_policy_attachment" "ec2_cloudwatch" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-################################################################################
-# EC2 Custom S3 Access Policy
-################################################################################
+# S3 access (only created when bucket ARNs are provided)
 
 data "aws_iam_policy_document" "ec2_s3_access" {
   count = var.create_ec2_role && length(var.s3_bucket_arns) > 0 ? 1 : 0

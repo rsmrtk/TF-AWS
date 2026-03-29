@@ -1,10 +1,10 @@
 variable "project" {
-  description = "Project name used as a prefix for all resources."
+  description = "Project name prefix for all resources."
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.project))
-    error_message = "Project must start with a lowercase letter, contain only lowercase alphanumeric characters and hyphens, and be 2-21 characters long."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "project: 3-22 chars, begins with letter, ends alphanumeric, lowercase/hyphens only."
   }
 }
 

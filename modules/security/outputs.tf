@@ -1,6 +1,4 @@
-################################################################################
-# KMS
-################################################################################
+# -- KMS --
 
 output "kms_key_id" {
   description = "ID of the general-purpose KMS key."
@@ -17,9 +15,7 @@ output "kms_alias_arn" {
   value       = aws_kms_alias.general.arn
 }
 
-################################################################################
-# Security Groups
-################################################################################
+# -- Security Groups --
 
 output "alb_security_group_id" {
   description = "ID of the ALB security group."
@@ -41,18 +37,14 @@ output "bastion_security_group_id" {
   value       = aws_security_group.bastion.id
 }
 
-################################################################################
-# WAF
-################################################################################
+# -- WAF --
 
 output "waf_web_acl_arn" {
   description = "ARN of the WAF v2 web ACL. Empty string when WAF is not enabled."
   value       = try(aws_wafv2_web_acl.this[0].arn, "")
 }
 
-################################################################################
-# ACM
-################################################################################
+# -- ACM --
 
 output "acm_certificate_arn" {
   description = "ARN of the ACM certificate. Empty string when no domain name is provided."

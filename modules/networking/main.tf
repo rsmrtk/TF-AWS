@@ -1,7 +1,3 @@
-################################################################################
-# VPC
-################################################################################
-
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -16,15 +12,23 @@ resource "aws_vpc" "this" {
   )
 }
 
-################################################################################
-# VPC Flow Logs
-################################################################################
+# Lock down the default SG so nothing can use it accidentally -- no rules
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.this.id
+
+  tags = {
+    Name = "${local.name_prefix}-default-DO-NOT-USE"
+  }
+}
+
+# --- Flow Logs ---
 
 resource "aws_cloudwatch_log_group" "flow_log" {
   count = var.enable_flow_logs ? 1 : 0
 
   name              = "/aws/vpc-flow-log/${local.name_prefix}-vpc"
   retention_in_days = var.flow_log_retention_days
+  kms_key_id        = var.kms_key_arn != "" ? var.kms_key_arn : null
 
   tags = merge(
     var.tags,
@@ -80,7 +84,7 @@ resource "aws_iam_role_policy" "flow_log" {
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams",
         ]
-        Resource = "*"
+        Resource = "${aws_cloudwatch_log_group.flow_log[0].arn}:*"
       },
     ]
   })

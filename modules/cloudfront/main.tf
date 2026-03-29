@@ -1,6 +1,4 @@
-################################################################################
-# Managed Cache Policies
-################################################################################
+# -- Managed cache policies from AWS --
 
 data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
@@ -10,10 +8,38 @@ data "aws_cloudfront_cache_policy" "caching_disabled" {
   name = "Managed-CachingDisabled"
 }
 
-################################################################################
-# Origin Access Control (S3 only)
-################################################################################
+# Enforce browser-side security via response headers. HSTS preload list
+# submission requires max-age >= 1 year (63072000 s) + includeSubDomains.
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name = "${local.name_prefix}-security-headers"
 
+  security_headers_config {
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+    xss_protection {
+      mode_block = true
+      protection = true
+      override   = true
+    }
+  }
+}
+
+# OAC replaces the legacy OAI approach for S3 origins (sigv4 signing).
 resource "aws_cloudfront_origin_access_control" "this" {
   count = local.is_s3 ? 1 : 0
 
@@ -24,10 +50,9 @@ resource "aws_cloudfront_origin_access_control" "this" {
   signing_protocol                  = "sigv4"
 }
 
-################################################################################
-# CloudFront Distribution
-################################################################################
-
+#
+# Distribution
+#
 resource "aws_cloudfront_distribution" "this" {
   comment             = "${local.name_prefix}-distribution"
   enabled             = true
@@ -37,7 +62,7 @@ resource "aws_cloudfront_distribution" "this" {
   aliases             = var.aliases
   web_acl_id          = var.waf_web_acl_arn != "" ? var.waf_web_acl_arn : null
 
-  # ---------- S3 Origin ----------
+  # S3 origin with OAC
   dynamic "origin" {
     for_each = local.is_s3 ? [1] : []
 
@@ -48,7 +73,7 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
-  # ---------- ALB Custom Origin ----------
+  # ALB origin -- always talks HTTPS back to the load balancer
   dynamic "origin" {
     for_each = local.is_s3 ? [] : [1]
 
@@ -65,17 +90,17 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
-  # ---------- Default Cache Behavior ----------
   default_cache_behavior {
-    target_origin_id       = local.is_s3 ? "${local.name_prefix}-s3-origin" : "${local.name_prefix}-alb-origin"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-    allowed_methods        = local.is_s3 ? ["GET", "HEAD"] : ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = local.is_s3 ? data.aws_cloudfront_cache_policy.caching_optimized.id : data.aws_cloudfront_cache_policy.caching_disabled.id
+    target_origin_id           = local.is_s3 ? "${local.name_prefix}-s3-origin" : "${local.name_prefix}-alb-origin"
+    viewer_protocol_policy     = "redirect-to-https"
+    compress                   = true
+    allowed_methods            = local.is_s3 ? ["GET", "HEAD"] : ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = local.is_s3 ? data.aws_cloudfront_cache_policy.caching_optimized.id : data.aws_cloudfront_cache_policy.caching_disabled.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
   }
 
-  # ---------- Viewer Certificate ----------
+  # TLS: use the custom cert when provided, otherwise fall back to *.cloudfront.net
   viewer_certificate {
     cloudfront_default_certificate = var.acm_certificate_arn == "" ? true : false
     acm_certificate_arn            = var.acm_certificate_arn != "" ? var.acm_certificate_arn : null
@@ -83,14 +108,13 @@ resource "aws_cloudfront_distribution" "this" {
     minimum_protocol_version       = var.acm_certificate_arn != "" ? "TLSv1.2_2021" : null
   }
 
-  # ---------- Restrictions ----------
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
 
-  # ---------- Logging ----------
+  # Access logs go to a separate S3 bucket when enabled.
   dynamic "logging_config" {
     for_each = var.enable_logging ? [1] : []
 
@@ -101,7 +125,6 @@ resource "aws_cloudfront_distribution" "this" {
     }
   }
 
-  # ---------- Custom Error Responses ----------
   dynamic "custom_error_response" {
     for_each = var.custom_error_responses
 

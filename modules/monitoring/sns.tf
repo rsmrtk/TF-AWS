@@ -1,6 +1,6 @@
-################################################################################
-# SNS Topic for CloudWatch Alarms
-################################################################################
+data "aws_caller_identity" "current" {}
+
+# ---- SNS Topic for alarm fanout ----
 
 resource "aws_sns_topic" "alarms" {
   count = local.create_sns ? 1 : 0
@@ -13,10 +13,9 @@ resource "aws_sns_topic" "alarms" {
   })
 }
 
-################################################################################
-# SNS Topic Policy — Allow CloudWatch to Publish
-################################################################################
-
+# Restrict publishing to CloudWatch from *this* account only.
+# Without the SourceAccount condition any account could publish if they
+# guess the topic ARN.
 data "aws_iam_policy_document" "sns_topic_policy" {
   count = local.create_sns ? 1 : 0
 
@@ -31,6 +30,12 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
     actions   = ["SNS:Publish"]
     resources = [aws_sns_topic.alarms[0].arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
   }
 }
 
@@ -41,10 +46,7 @@ resource "aws_sns_topic_policy" "alarms" {
   policy = data.aws_iam_policy_document.sns_topic_policy[0].json
 }
 
-################################################################################
-# SNS Email Subscriptions
-################################################################################
-
+# Email subscriptions -- these require manual confirmation via the inbox.
 resource "aws_sns_topic_subscription" "email" {
   for_each = local.create_sns ? toset(var.alarm_email_endpoints) : toset([])
 

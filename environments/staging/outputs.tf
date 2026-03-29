@@ -1,6 +1,4 @@
-################################################################################
 # Networking
-################################################################################
 
 output "vpc_id" {
   description = "The ID of the VPC."
@@ -27,9 +25,7 @@ output "data_subnet_ids" {
   value       = module.networking.data_subnet_ids
 }
 
-################################################################################
 # Security
-################################################################################
 
 output "kms_key_arn" {
   description = "ARN of the KMS key."
@@ -56,9 +52,7 @@ output "waf_web_acl_arn" {
   value       = module.security.waf_web_acl_arn
 }
 
-################################################################################
 # IAM
-################################################################################
 
 output "ec2_instance_profile_name" {
   description = "Name of the EC2 instance profile."
@@ -75,14 +69,7 @@ output "ecs_execution_role_arn" {
   value       = module.iam.ecs_execution_role_arn
 }
 
-output "lambda_role_arn" {
-  description = "ARN of the Lambda execution role."
-  value       = module.iam.lambda_role_arn
-}
-
-################################################################################
 # S3
-################################################################################
 
 output "s3_bucket_ids" {
   description = "Map of S3 bucket IDs."
@@ -94,18 +81,14 @@ output "s3_bucket_arns" {
   value       = module.s3.bucket_arns
 }
 
-################################################################################
 # ECR
-################################################################################
 
 output "ecr_repository_urls" {
   description = "Map of ECR repository URLs."
   value       = module.ecr.repository_urls
 }
 
-################################################################################
 # Compute
-################################################################################
 
 output "alb_dns_name" {
   description = "DNS name of the ALB."
@@ -117,9 +100,7 @@ output "asg_name" {
   value       = module.compute.asg_name
 }
 
-################################################################################
 # EKS
-################################################################################
 
 output "eks_cluster_name" {
   description = "Name of the EKS cluster."
@@ -141,9 +122,7 @@ output "eks_oidc_provider_arn" {
   value       = module.eks.oidc_provider_arn
 }
 
-################################################################################
 # ECS
-################################################################################
 
 output "ecs_cluster_name" {
   description = "Name of the ECS cluster."
@@ -155,9 +134,7 @@ output "ecs_cluster_arn" {
   value       = module.ecs.cluster_arn
 }
 
-################################################################################
 # RDS
-################################################################################
 
 output "rds_endpoint" {
   description = "Endpoint of the RDS instance."
@@ -169,9 +146,7 @@ output "rds_secret_arn" {
   value       = module.rds.db_secret_arn
 }
 
-################################################################################
 # Monitoring
-################################################################################
 
 output "sns_topic_arn" {
   description = "ARN of the monitoring SNS topic."

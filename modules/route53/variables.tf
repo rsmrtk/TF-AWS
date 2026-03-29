@@ -1,10 +1,10 @@
 variable "project" {
-  description = "Project name used in resource naming."
+  description = "Project name for resource naming."
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.project))
-    error_message = "Project must start with a lowercase letter, contain only lowercase alphanumeric characters and hyphens, and be 2-21 characters long."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Must be 3-22 chars, start with a letter, end alphanumeric, lowercase + hyphens only."
   }
 }
 
@@ -37,11 +37,12 @@ variable "zone_id" {
 }
 
 variable "records" {
-  description = "Map of DNS records to create. Each key becomes part of the record name. Use alias block for ALB/CloudFront targets, or records + ttl for standard entries."
+  description = "Map of DNS records to create. Set health_check_key to link a record to a health check defined in var.health_checks."
   type = map(object({
-    type    = string
-    ttl     = optional(number, 300)
-    records = optional(list(string), [])
+    type             = string
+    ttl              = optional(number, 300)
+    records          = optional(list(string), [])
+    health_check_key = optional(string, null)
     alias = optional(object({
       name                   = string
       zone_id                = string

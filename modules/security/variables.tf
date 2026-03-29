@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,28}[a-z0-9]$", var.project))
-    error_message = "Project name must be 3-30 characters, start with a letter, end with a letter or number, and contain only lowercase letters, numbers, and hyphens."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 lowercase alphanumeric characters or hyphens, starting with a letter."
   }
 }
 
@@ -23,11 +23,6 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block of the VPC."
-  type        = string
-}
-
 variable "enable_waf" {
   description = "Whether to create WAF v2 web ACL."
   type        = bool
@@ -42,6 +37,17 @@ variable "waf_mode" {
   validation {
     condition     = contains(["count", "block"], var.waf_mode)
     error_message = "WAF mode must be one of: count, block."
+  }
+}
+
+variable "waf_log_retention_days" {
+  description = "Retention period for WAF CloudWatch logs. Only used when enable_waf is true."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = contains([1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653], var.waf_log_retention_days)
+    error_message = "Retention days must be a valid CloudWatch Logs retention value."
   }
 }
 
@@ -72,6 +78,12 @@ variable "app_ports" {
   description = "List of ports the application listens on, used for ALB-to-app security group ingress rules."
   type        = list(number)
   default     = [8080]
+}
+
+variable "db_port" {
+  description = "Database port for the DB security group ingress rule."
+  type        = number
+  default     = 5432
 }
 
 variable "bastion_allowed_cidrs" {

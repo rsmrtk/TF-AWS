@@ -1,6 +1,4 @@
-################################################################################
-# ECS Task Role
-################################################################################
+# ECS task role -- used by application containers at runtime.
 
 data "aws_iam_policy_document" "ecs_task_assume_role" {
   count = var.create_ecs_task_role ? 1 : 0
@@ -25,9 +23,15 @@ resource "aws_iam_role" "ecs_task" {
   tags = merge(local.common_tags, var.tags)
 }
 
-################################################################################
-# ECS Execution Role
-################################################################################
+# Attach caller-supplied policies to the task role (e.g. SQS, DynamoDB, etc.)
+resource "aws_iam_role_policy_attachment" "ecs_task_extra" {
+  for_each = var.create_ecs_task_role ? toset(var.ecs_task_role_policy_arns) : toset([])
+
+  role       = aws_iam_role.ecs_task[0].name
+  policy_arn = each.value
+}
+
+# ECS execution role -- used by the ECS agent to pull images and fetch secrets.
 
 data "aws_iam_policy_document" "ecs_execution_assume_role" {
   count = var.create_ecs_execution_role ? 1 : 0
@@ -59,13 +63,12 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-################################################################################
-# ECS Custom Policy – Secrets Manager, KMS, and ECR Access
-################################################################################
+# Scoped-down policy for secrets, KMS, and ECR access.
 
 data "aws_iam_policy_document" "ecs_custom" {
   count = var.create_ecs_execution_role ? 1 : 0
 
+  # Scope secrets access to this project/env instead of "*"
   statement {
     sid    = "SecretsManagerAccess"
     effect = "Allow"
@@ -73,7 +76,7 @@ data "aws_iam_policy_document" "ecs_custom" {
       "secretsmanager:GetSecretValue",
       "secretsmanager:DescribeSecret",
     ]
-    resources = ["*"]
+    resources = ["arn:aws:secretsmanager:*:*:secret:${var.project}-${var.environment}-*"]
   }
 
   dynamic "statement" {
@@ -90,6 +93,7 @@ data "aws_iam_policy_document" "ecs_custom" {
     }
   }
 
+  # ECR auth token is account-wide; image pulls are covered by the managed policy.
   statement {
     sid    = "ECRAccess"
     effect = "Allow"

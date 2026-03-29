@@ -14,18 +14,17 @@ provider "aws" {
   }
 }
 
-# --------------------------------------------------------------------------
-# GitHub Actions OIDC Provider
-# --------------------------------------------------------------------------
+# GitHub Actions OIDC provider
 resource "aws_iam_openid_connect_provider" "github_actions" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+
+  # GitHub Actions OIDC thumbprint -- AWS verifies tokens directly but
+  # the field is required by the API. This is GitHub's root CA thumbprint.
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-# --------------------------------------------------------------------------
-# Plan role — read-only, used on PRs
-# --------------------------------------------------------------------------
+# Plan role -- read-only, used during pull requests
 resource "aws_iam_role" "github_actions_plan" {
   name        = "${var.project}-github-actions-plan"
   description = "Role assumed by GitHub Actions for terraform plan (read-only)."
@@ -92,9 +91,10 @@ resource "aws_iam_role_policy" "plan_state_access" {
   })
 }
 
-# --------------------------------------------------------------------------
-# Apply role — used on merge to main
-# --------------------------------------------------------------------------
+# Apply role -- used on merge to main.
+# PowerUserAccess is still broad but avoids the unrestricted IAM and
+# Organizations access that AdministratorAccess grants. Scope this
+# down further as the project stabilises.
 resource "aws_iam_role" "github_actions_apply" {
   name        = "${var.project}-github-actions-apply"
   description = "Role assumed by GitHub Actions for terraform apply."
@@ -123,14 +123,12 @@ resource "aws_iam_role" "github_actions_apply" {
   max_session_duration = 7200
 }
 
-resource "aws_iam_role_policy_attachment" "apply_admin" {
+resource "aws_iam_role_policy_attachment" "apply_power_user" {
   role       = aws_iam_role.github_actions_apply.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
 }
 
-# --------------------------------------------------------------------------
 # Terraform execution role (for local development)
-# --------------------------------------------------------------------------
 resource "aws_iam_role" "terraform_execution" {
   name        = "${var.project}-terraform-execution"
   description = "Role for local Terraform execution with broad permissions."
@@ -156,7 +154,7 @@ resource "aws_iam_role" "terraform_execution" {
   max_session_duration = 7200
 }
 
-resource "aws_iam_role_policy_attachment" "execution_admin" {
+resource "aws_iam_role_policy_attachment" "execution_power_user" {
   role       = aws_iam_role.terraform_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
 }

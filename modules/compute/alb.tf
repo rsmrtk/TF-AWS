@@ -1,7 +1,3 @@
-###############################################################################
-# Application Load Balancer
-###############################################################################
-
 resource "aws_lb" "this" {
   name               = "${local.name_prefix}-app-alb"
   internal           = false
@@ -12,39 +8,40 @@ resource "aws_lb" "this" {
   enable_deletion_protection = var.environment == "prod" ? true : false
   drop_invalid_header_fields = true
 
-  access_logs {
-    bucket  = aws_s3_bucket.alb_logs.id
-    prefix  = "alb"
-    enabled = false
+  dynamic "access_logs" {
+    for_each = var.enable_alb_access_logs ? [1] : []
+    content {
+      bucket  = aws_s3_bucket.alb_logs[0].id
+      prefix  = "alb"
+      enabled = true
+    }
   }
 
   tags = merge(
     var.tags,
     local.common_tags,
-    {
-      Name = "${local.name_prefix}-app-alb"
-    },
+    { Name = "${local.name_prefix}-app-alb" },
   )
 }
 
-###############################################################################
-# ALB Access Logs S3 Bucket
-###############################################################################
+# S3 bucket for ALB access logs -- only created when logging is turned on.
+# The bucket policy grants the regional ELB service account write access,
+# which is required by AWS before the ALB will actually deliver logs.
 
 resource "aws_s3_bucket" "alb_logs" {
+  count  = var.enable_alb_access_logs ? 1 : 0
   bucket = "${local.name_prefix}-alb-logs-${data.aws_caller_identity.current.account_id}"
 
   tags = merge(
     var.tags,
     local.common_tags,
-    {
-      Name = "${local.name_prefix}-alb-logs"
-    },
+    { Name = "${local.name_prefix}-alb-logs" },
   )
 }
 
 resource "aws_s3_bucket_versioning" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+  count  = var.enable_alb_access_logs ? 1 : 0
+  bucket = aws_s3_bucket.alb_logs[0].id
 
   versioning_configuration {
     status = "Enabled"
@@ -52,7 +49,8 @@ resource "aws_s3_bucket_versioning" "alb_logs" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+  count  = var.enable_alb_access_logs ? 1 : 0
+  bucket = aws_s3_bucket.alb_logs[0].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -62,7 +60,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
 }
 
 resource "aws_s3_bucket_public_access_block" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+  count  = var.enable_alb_access_logs ? 1 : 0
+  bucket = aws_s3_bucket.alb_logs[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -71,11 +70,14 @@ resource "aws_s3_bucket_public_access_block" "alb_logs" {
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+  count  = var.enable_alb_access_logs ? 1 : 0
+  bucket = aws_s3_bucket.alb_logs[0].id
 
   rule {
     id     = "expire-old-logs"
     status = "Enabled"
+
+    filter {} # apply to all objects
 
     expiration {
       days = 90
@@ -89,7 +91,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
 }
 
 resource "aws_s3_bucket_policy" "alb_logs" {
-  bucket = aws_s3_bucket.alb_logs.id
+  count  = var.enable_alb_access_logs ? 1 : 0
+  bucket = aws_s3_bucket.alb_logs[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -99,14 +102,14 @@ resource "aws_s3_bucket_policy" "alb_logs" {
         Effect    = "Allow"
         Principal = { AWS = data.aws_elb_service_account.current.arn }
         Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.alb_logs.arn}/alb/*"
+        Resource  = "${aws_s3_bucket.alb_logs[0].arn}/alb/*"
       },
       {
         Sid       = "AllowLogDeliveryService"
         Effect    = "Allow"
         Principal = { Service = "delivery.logs.amazonaws.com" }
         Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.alb_logs.arn}/alb/*"
+        Resource  = "${aws_s3_bucket.alb_logs[0].arn}/alb/*"
         Condition = {
           StringEquals = { "s3:x-amz-acl" = "bucket-owner-full-control" }
         }
@@ -116,15 +119,13 @@ resource "aws_s3_bucket_policy" "alb_logs" {
         Effect    = "Allow"
         Principal = { Service = "delivery.logs.amazonaws.com" }
         Action    = "s3:GetBucketAcl"
-        Resource  = aws_s3_bucket.alb_logs.arn
+        Resource  = aws_s3_bucket.alb_logs[0].arn
       },
     ]
   })
 }
 
-###############################################################################
-# Target Group
-###############################################################################
+# -- Target group -------------------------------------------------------------
 
 resource "aws_lb_target_group" "this" {
   name     = "${local.name_prefix}-app-tg"
@@ -156,9 +157,7 @@ resource "aws_lb_target_group" "this" {
   tags = merge(
     var.tags,
     local.common_tags,
-    {
-      Name = "${local.name_prefix}-app-tg"
-    },
+    { Name = "${local.name_prefix}-app-tg" },
   )
 
   lifecycle {
@@ -166,10 +165,10 @@ resource "aws_lb_target_group" "this" {
   }
 }
 
-###############################################################################
-# HTTP Listener
-# When HTTPS is enabled, HTTP redirects to HTTPS. Otherwise forwards to TG.
-###############################################################################
+# -- Listeners ----------------------------------------------------------------
+# When a certificate ARN is provided we stand up a proper HTTPS listener and
+# redirect all HTTP traffic to 443. Without a cert the HTTP listener forwards
+# directly to the target group -- no broken redirect.
 
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
@@ -177,10 +176,9 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   dynamic "default_action" {
-    for_each = var.enable_https ? [1] : []
+    for_each = var.certificate_arn != "" ? [1] : []
     content {
       type = "redirect"
-
       redirect {
         port        = "443"
         protocol    = "HTTPS"
@@ -190,7 +188,7 @@ resource "aws_lb_listener" "http" {
   }
 
   dynamic "default_action" {
-    for_each = var.enable_https ? [] : [1]
+    for_each = var.certificate_arn != "" ? [] : [1]
     content {
       type             = "forward"
       target_group_arn = aws_lb_target_group.this.arn
@@ -200,18 +198,12 @@ resource "aws_lb_listener" "http" {
   tags = merge(
     var.tags,
     local.common_tags,
-    {
-      Name = "${local.name_prefix}-app-http-listener"
-    },
+    { Name = "${local.name_prefix}-app-http-listener" },
   )
 }
 
-###############################################################################
-# HTTPS Listener (conditional)
-###############################################################################
-
 resource "aws_lb_listener" "https" {
-  count = var.enable_https && var.certificate_arn != "" ? 1 : 0
+  count = var.certificate_arn != "" ? 1 : 0
 
   load_balancer_arn = aws_lb.this.arn
   port              = 443
@@ -227,8 +219,6 @@ resource "aws_lb_listener" "https" {
   tags = merge(
     var.tags,
     local.common_tags,
-    {
-      Name = "${local.name_prefix}-app-https-listener"
-    },
+    { Name = "${local.name_prefix}-app-https-listener" },
   )
 }

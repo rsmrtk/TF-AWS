@@ -1,7 +1,4 @@
-################################################################################
 # VPC
-################################################################################
-
 output "vpc_id" {
   description = "The ID of the VPC."
   value       = aws_vpc.this.id
@@ -12,10 +9,7 @@ output "vpc_cidr" {
   value       = aws_vpc.this.cidr_block
 }
 
-################################################################################
 # Subnets
-################################################################################
-
 output "public_subnet_ids" {
   description = "List of public subnet IDs."
   value       = aws_subnet.public[*].id
@@ -31,10 +25,6 @@ output "data_subnet_ids" {
   value       = aws_subnet.data[*].id
 }
 
-################################################################################
-# Gateways
-################################################################################
-
 output "nat_gateway_ids" {
   description = "List of NAT Gateway IDs."
   value       = aws_nat_gateway.this[*].id
@@ -45,10 +35,7 @@ output "igw_id" {
   value       = aws_internet_gateway.this.id
 }
 
-################################################################################
-# VPC Endpoints
-################################################################################
-
+# Endpoints
 output "vpc_endpoint_s3_id" {
   description = "The ID of the S3 VPC gateway endpoint."
   value       = try(aws_vpc_endpoint.s3[0].id, null)

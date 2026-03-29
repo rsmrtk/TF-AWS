@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,28}[a-z0-9]$", var.project))
-    error_message = "Project name must be 3-30 characters, start with a letter, end with a letter or digit, and contain only lowercase letters, digits, and hyphens."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 chars, start with a letter, end with a letter or digit, only lowercase alphanumeric and hyphens."
   }
 }
 
@@ -16,11 +16,6 @@ variable "environment" {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "Environment must be one of: dev, staging, prod."
   }
-}
-
-variable "vpc_id" {
-  description = "ID of the VPC where ECS resources will be deployed."
-  type        = string
 }
 
 variable "private_subnet_ids" {
@@ -59,10 +54,25 @@ variable "task_role_arn" {
   type        = string
 }
 
-variable "enable_execute_command" {
-  description = "Whether to enable ECS Exec for interactive debugging."
+# Off by default. ECS Exec opens an SSM session into running containers
+# which is handy for debugging but a risk in production environments.
+variable "enable_ecs_exec" {
+  description = "Enable ECS Exec for interactive debugging. Should be false in production."
   type        = bool
-  default     = true
+  default     = false
+}
+
+# Controls how aggressively we lean on Spot for cost savings.
+# 0 = all on-demand above base, 100 = all spot above base.
+variable "spot_capacity_weight" {
+  description = "Weight for FARGATE_SPOT capacity provider (0-100). Higher means more spot instances."
+  type        = number
+  default     = 50
+
+  validation {
+    condition     = var.spot_capacity_weight >= 0 && var.spot_capacity_weight <= 100
+    error_message = "spot_capacity_weight must be between 0 and 100."
+  }
 }
 
 variable "kms_key_arn" {

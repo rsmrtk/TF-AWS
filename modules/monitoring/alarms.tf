@@ -1,7 +1,5 @@
-################################################################################
-# CloudWatch Metric Alarms
-################################################################################
-
+# Alarms fire to the SNS topic (when configured) on both ALARM and OK
+# transitions, so the on-call engineer gets the all-clear automatically.
 resource "aws_cloudwatch_metric_alarm" "this" {
   for_each = var.alarms
 

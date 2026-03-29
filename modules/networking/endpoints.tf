@@ -1,12 +1,4 @@
-################################################################################
-# Data source for current AWS region
-################################################################################
-
 data "aws_region" "current" {}
-
-################################################################################
-# VPC Endpoint Security Group
-################################################################################
 
 resource "aws_security_group" "vpc_endpoints" {
   count = var.enable_vpc_endpoints ? 1 : 0
@@ -23,6 +15,14 @@ resource "aws_security_group" "vpc_endpoints" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  egress {
+    description = "HTTPS to VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
   tags = merge(
     var.tags,
     local.common_tags,
@@ -32,10 +32,7 @@ resource "aws_security_group" "vpc_endpoints" {
   )
 }
 
-################################################################################
-# Gateway Endpoints
-################################################################################
-
+# Gateway endpoints (S3, DynamoDB) - no SG needed, attached via route tables
 resource "aws_vpc_endpoint" "s3" {
   count = var.enable_vpc_endpoints ? 1 : 0
 
@@ -46,7 +43,7 @@ resource "aws_vpc_endpoint" "s3" {
   route_table_ids = concat(
     [aws_route_table.public.id],
     aws_route_table.private[*].id,
-    aws_route_table.data[*].id,
+    [aws_route_table.data.id],
   )
 
   tags = merge(
@@ -68,7 +65,7 @@ resource "aws_vpc_endpoint" "dynamodb" {
   route_table_ids = concat(
     [aws_route_table.public.id],
     aws_route_table.private[*].id,
-    aws_route_table.data[*].id,
+    [aws_route_table.data.id],
   )
 
   tags = merge(
@@ -80,35 +77,7 @@ resource "aws_vpc_endpoint" "dynamodb" {
   )
 }
 
-################################################################################
-# Interface Endpoints
-################################################################################
-
-locals {
-  interface_endpoints = {
-    ecr_api = {
-      service_name = "com.amazonaws.${data.aws_region.current.name}.ecr.api"
-      name_suffix  = "ecr-api-endpoint"
-    }
-    ecr_dkr = {
-      service_name = "com.amazonaws.${data.aws_region.current.name}.ecr.dkr"
-      name_suffix  = "ecr-dkr-endpoint"
-    }
-    logs = {
-      service_name = "com.amazonaws.${data.aws_region.current.name}.logs"
-      name_suffix  = "logs-endpoint"
-    }
-    sts = {
-      service_name = "com.amazonaws.${data.aws_region.current.name}.sts"
-      name_suffix  = "sts-endpoint"
-    }
-    ssm = {
-      service_name = "com.amazonaws.${data.aws_region.current.name}.ssm"
-      name_suffix  = "ssm-endpoint"
-    }
-  }
-}
-
+# Interface endpoints
 resource "aws_vpc_endpoint" "interface" {
   for_each = var.enable_vpc_endpoints ? local.interface_endpoints : {}
 

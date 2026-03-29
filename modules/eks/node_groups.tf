@@ -1,7 +1,3 @@
-################################################################################
-# Node Group IAM Role
-################################################################################
-
 resource "aws_iam_role" "node_group" {
   name = "${local.name_prefix}-eks-node-role"
 
@@ -9,11 +5,9 @@ resource "aws_iam_role" "node_group" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
+        Effect    = "Allow"
+        Principal = { Service = "ec2.amazonaws.com" }
+        Action    = "sts:AssumeRole"
       }
     ]
   })
@@ -36,9 +30,25 @@ resource "aws_iam_role_policy_attachment" "node_ecr_policy" {
   role       = aws_iam_role.node_group.name
 }
 
-################################################################################
-# Managed Node Groups
-################################################################################
+# Launch template exists solely to enforce IMDSv2 on every node.
+# EKS managed node groups don't expose metadata_options directly,
+# so a launch template is the only way to require http_tokens.
+resource "aws_launch_template" "node_group" {
+  for_each = var.node_groups
+
+  name        = "${local.name_prefix}-${each.key}-ng-lt"
+  description = "IMDSv2-enforcing template for ${each.key} node group"
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  tags = merge(local.common_tags, var.tags)
+}
+
+# -- Managed node groups ------------------------------------------------------
 
 resource "aws_eks_node_group" "this" {
   for_each = var.node_groups
@@ -52,6 +62,11 @@ resource "aws_eks_node_group" "this" {
   capacity_type  = each.value.capacity_type
   disk_size      = each.value.disk_size
   labels         = each.value.labels
+
+  launch_template {
+    id      = aws_launch_template.node_group[each.key].id
+    version = aws_launch_template.node_group[each.key].latest_version
+  }
 
   scaling_config {
     min_size     = each.value.min_size
@@ -76,9 +91,7 @@ resource "aws_eks_node_group" "this" {
   tags = merge(
     local.common_tags,
     var.tags,
-    {
-      Name = "${local.name_prefix}-${each.key}-ng"
-    },
+    { Name = "${local.name_prefix}-${each.key}-ng" },
   )
 
   depends_on = [

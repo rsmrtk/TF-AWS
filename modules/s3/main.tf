@@ -1,6 +1,4 @@
-################################################################################
-# S3 Buckets
-################################################################################
+# --- S3 Buckets ---
 
 resource "aws_s3_bucket" "this" {
   for_each = var.buckets
@@ -8,19 +6,13 @@ resource "aws_s3_bucket" "this" {
   bucket        = "${local.name_prefix}-${each.key}"
   force_destroy = each.value.force_destroy
 
-  tags = merge(
-    var.tags,
-    local.common_tags,
-    {
-      Name    = "${local.name_prefix}-${each.key}"
-      Purpose = each.value.purpose
-    },
-  )
+  tags = merge(var.tags, local.common_tags, {
+    Name    = "${local.name_prefix}-${each.key}"
+    Purpose = each.value.purpose
+  })
 }
 
-################################################################################
 # Versioning
-################################################################################
 
 resource "aws_s3_bucket_versioning" "this" {
   for_each = var.buckets
@@ -32,9 +24,7 @@ resource "aws_s3_bucket_versioning" "this" {
   }
 }
 
-################################################################################
-# Server-Side Encryption
-################################################################################
+# SSE -- KMS with bucket keys for cost savings
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
   for_each = var.buckets
@@ -46,13 +36,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
       sse_algorithm     = "aws:kms"
       kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
     }
-    bucket_key_enabled = true
+    bucket_key_enabled = true # reduces KMS request costs
   }
 }
 
-################################################################################
-# Public Access Block
-################################################################################
+# Lock down public access at the bucket level
 
 resource "aws_s3_bucket_public_access_block" "this" {
   for_each = var.buckets
@@ -65,9 +53,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
   restrict_public_buckets = true
 }
 
-################################################################################
-# Lifecycle Configuration
-################################################################################
+# Lifecycle rules
 
 resource "aws_s3_bucket_lifecycle_configuration" "this" {
   for_each = {
@@ -91,7 +77,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
       dynamic "expiration" {
         for_each = rule.value.expiration_days > 0 ? [rule.value.expiration_days] : []
-
         content {
           days = expiration.value
         }
@@ -99,7 +84,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
       dynamic "noncurrent_version_expiration" {
         for_each = rule.value.noncurrent_version_expiration_days > 0 ? [rule.value.noncurrent_version_expiration_days] : []
-
         content {
           noncurrent_days = noncurrent_version_expiration.value
         }
@@ -110,9 +94,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
   depends_on = [aws_s3_bucket_versioning.this]
 }
 
-################################################################################
-# CORS Configuration
-################################################################################
+# CORS -- only for buckets that opt in
 
 resource "aws_s3_bucket_cors_configuration" "this" {
   for_each = {
@@ -131,9 +113,9 @@ resource "aws_s3_bucket_cors_configuration" "this" {
   }
 }
 
-################################################################################
-# Bucket Policy — Enforce TLS
-################################################################################
+# Deny non-TLS traffic.
+# Note: Principal must be "*" (not {"AWS":"*"}) for bucket-level deny policies
+# to apply to anonymous callers as well.
 
 data "aws_iam_policy_document" "enforce_tls" {
   for_each = var.buckets
@@ -143,7 +125,7 @@ data "aws_iam_policy_document" "enforce_tls" {
     effect = "Deny"
 
     principals {
-      type        = "AWS"
+      type        = "*"
       identifiers = ["*"]
     }
 

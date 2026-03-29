@@ -11,7 +11,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
-.terraform.lock.hcl
+# .terraform.lock.hcl is intentionally tracked -- pin provider checksums.
 
 # Environment variables
 *.auto.tfvars

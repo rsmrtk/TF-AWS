@@ -1,13 +1,12 @@
-# -----------------------------------------------------------------------------
-# Networking
-# -----------------------------------------------------------------------------
 module "networking" {
   source = "../../modules/networking"
 
-  project                 = var.project
-  environment             = var.environment
-  vpc_cidr                = "10.0.0.0/16"
-  azs                     = local.azs
+  project     = var.project
+  environment = var.environment
+  vpc_cidr    = "10.0.0.0/16"
+  azs         = local.azs
+
+  # single NAT saves ~$30/mo in dev
   single_nat_gateway      = true
   enable_vpc_endpoints    = true
   enable_flow_logs        = true
@@ -16,24 +15,17 @@ module "networking" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# Security
-# -----------------------------------------------------------------------------
 module "security" {
   source = "../../modules/security"
 
   project     = var.project
   environment = var.environment
   vpc_id      = module.networking.vpc_id
-  vpc_cidr    = module.networking.vpc_cidr
   enable_waf  = false
 
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# IAM
-# -----------------------------------------------------------------------------
 module "iam" {
   source = "../../modules/iam"
 
@@ -44,9 +36,6 @@ module "iam" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# S3
-# -----------------------------------------------------------------------------
 module "s3" {
   source = "../../modules/s3"
 
@@ -75,9 +64,6 @@ module "s3" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# ECR
-# -----------------------------------------------------------------------------
 module "ecr" {
   source = "../../modules/ecr"
 
@@ -95,9 +81,6 @@ module "ecr" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# Compute (ALB + ASG)
-# -----------------------------------------------------------------------------
 module "compute" {
   source = "../../modules/compute"
 
@@ -118,9 +101,6 @@ module "compute" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# EKS
-# -----------------------------------------------------------------------------
 module "eks" {
   source = "../../modules/eks"
 
@@ -143,15 +123,11 @@ module "eks" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# ECS
-# -----------------------------------------------------------------------------
 module "ecs" {
   source = "../../modules/ecs"
 
   project               = var.project
   environment           = var.environment
-  vpc_id                = module.networking.vpc_id
   private_subnet_ids    = module.networking.private_subnet_ids
   app_security_group_id = module.security.app_security_group_id
   execution_role_arn    = module.iam.ecs_execution_role_arn
@@ -161,15 +137,11 @@ module "ecs" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# RDS
-# -----------------------------------------------------------------------------
 module "rds" {
   source = "../../modules/rds"
 
   project                 = var.project
   environment             = var.environment
-  vpc_id                  = module.networking.vpc_id
   data_subnet_ids         = module.networking.data_subnet_ids
   db_security_group_id    = module.security.db_security_group_id
   engine                  = "postgres"
@@ -185,9 +157,6 @@ module "rds" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# Monitoring
-# -----------------------------------------------------------------------------
 module "monitoring" {
   source = "../../modules/monitoring"
 

@@ -68,6 +68,12 @@ variable "flow_log_retention_days" {
   }
 }
 
+variable "kms_key_arn" {
+  description = "ARN of the KMS key for encrypting CloudWatch log groups. Pass the security module's KMS key ARN."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources."
   type        = map(string)

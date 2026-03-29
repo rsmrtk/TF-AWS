@@ -1,7 +1,3 @@
-###############################################################################
-# Launch Template
-###############################################################################
-
 resource "aws_launch_template" "this" {
   name        = "${local.name_prefix}-app-lt"
   description = "Launch template for ${local.name_prefix} application instances"
@@ -12,7 +8,6 @@ resource "aws_launch_template" "this" {
 
   user_data = var.user_data != "" ? base64encode(var.user_data) : null
 
-  # --- IAM Instance Profile ---------------------------------------------------
   dynamic "iam_instance_profile" {
     for_each = var.instance_profile_name != "" ? [1] : []
     content {
@@ -20,14 +15,12 @@ resource "aws_launch_template" "this" {
     }
   }
 
-  # --- Network Interface ------------------------------------------------------
   network_interfaces {
     associate_public_ip_address = false
     security_groups             = [var.app_security_group_id]
     delete_on_termination       = true
   }
 
-  # --- Root EBS Volume (encrypted) --------------------------------------------
   block_device_mappings {
     device_name = "/dev/xvda"
 
@@ -40,28 +33,24 @@ resource "aws_launch_template" "this" {
     }
   }
 
-  # --- IMDSv2 Required --------------------------------------------------------
+  # IMDSv2 required -- prevents SSRF-based credential theft
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
     http_put_response_hop_limit = 2
   }
 
-  # --- Monitoring -------------------------------------------------------------
   monitoring {
     enabled = true
   }
 
-  # --- Tag Specifications -----------------------------------------------------
   tag_specifications {
     resource_type = "instance"
 
     tags = merge(
       var.tags,
       local.common_tags,
-      {
-        Name = "${local.name_prefix}-app-instance"
-      },
+      { Name = "${local.name_prefix}-app-instance" },
     )
   }
 
@@ -71,18 +60,14 @@ resource "aws_launch_template" "this" {
     tags = merge(
       var.tags,
       local.common_tags,
-      {
-        Name = "${local.name_prefix}-app-volume"
-      },
+      { Name = "${local.name_prefix}-app-volume" },
     )
   }
 
   tags = merge(
     var.tags,
     local.common_tags,
-    {
-      Name = "${local.name_prefix}-app-lt"
-    },
+    { Name = "${local.name_prefix}-app-lt" },
   )
 
   lifecycle {
@@ -90,9 +75,7 @@ resource "aws_launch_template" "this" {
   }
 }
 
-###############################################################################
-# Auto Scaling Group
-###############################################################################
+# -- ASG with mixed instances (on-demand base + spot overflow) ----------------
 
 resource "aws_autoscaling_group" "this" {
   name                = "${local.name_prefix}-app-asg"
@@ -105,7 +88,6 @@ resource "aws_autoscaling_group" "this" {
   health_check_type         = "ELB"
   health_check_grace_period = 300
 
-  # --- Mixed Instances Policy (cost optimization) -----------------------------
   mixed_instances_policy {
     launch_template {
       launch_template_specification {
@@ -121,7 +103,6 @@ resource "aws_autoscaling_group" "this" {
     }
   }
 
-  # --- Instance Refresh -------------------------------------------------------
   instance_refresh {
     strategy = "Rolling"
 
@@ -131,14 +112,11 @@ resource "aws_autoscaling_group" "this" {
     }
   }
 
-  # --- Tags -------------------------------------------------------------------
   dynamic "tag" {
     for_each = merge(
       var.tags,
       local.common_tags,
-      {
-        Name = "${local.name_prefix}-app-instance"
-      },
+      { Name = "${local.name_prefix}-app-instance" },
     )
     content {
       key                 = tag.key
@@ -153,10 +131,6 @@ resource "aws_autoscaling_group" "this" {
 
   depends_on = [aws_lb.this]
 }
-
-###############################################################################
-# Scaling Policy - Target Tracking on CPU 70%
-###############################################################################
 
 resource "aws_autoscaling_policy" "cpu_target_tracking" {
   name                   = "${local.name_prefix}-app-cpu-target-tracking"

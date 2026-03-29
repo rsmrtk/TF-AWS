@@ -1,7 +1,4 @@
-################################################################################
-# Public Subnets
-################################################################################
-
+# Public subnets - one per AZ, used for ALBs and NAT gateways
 resource "aws_subnet" "public" {
   count = local.az_count
 
@@ -21,10 +18,7 @@ resource "aws_subnet" "public" {
   )
 }
 
-################################################################################
-# Private Subnets
-################################################################################
-
+# Private subnets - workloads with NAT egress
 resource "aws_subnet" "private" {
   count = local.az_count
 
@@ -43,10 +37,7 @@ resource "aws_subnet" "private" {
   )
 }
 
-################################################################################
-# Data Subnets
-################################################################################
-
+# Data subnets - databases and caches, no internet route
 resource "aws_subnet" "data" {
   count = local.az_count
 

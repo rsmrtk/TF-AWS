@@ -1,13 +1,12 @@
-# -----------------------------------------------------------------------------
-# Networking
-# -----------------------------------------------------------------------------
 module "networking" {
   source = "../../modules/networking"
 
-  project                 = var.project
-  environment             = var.environment
-  vpc_cidr                = "10.0.0.0/16"
-  azs                     = local.azs
+  project     = var.project
+  environment = var.environment
+  vpc_cidr    = "10.2.0.0/16"
+  azs         = local.azs
+
+  # prod runs a NAT per AZ for resilience
   single_nat_gateway      = false
   enable_vpc_endpoints    = true
   enable_flow_logs        = true
@@ -16,25 +15,18 @@ module "networking" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# Security
-# -----------------------------------------------------------------------------
 module "security" {
   source = "../../modules/security"
 
   project     = var.project
   environment = var.environment
   vpc_id      = module.networking.vpc_id
-  vpc_cidr    = module.networking.vpc_cidr
   enable_waf  = true
   waf_mode    = "block"
 
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# IAM
-# -----------------------------------------------------------------------------
 module "iam" {
   source = "../../modules/iam"
 
@@ -45,9 +37,6 @@ module "iam" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# S3
-# -----------------------------------------------------------------------------
 module "s3" {
   source = "../../modules/s3"
 
@@ -105,9 +94,6 @@ module "s3" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# ECR
-# -----------------------------------------------------------------------------
 module "ecr" {
   source = "../../modules/ecr"
 
@@ -125,9 +111,6 @@ module "ecr" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# Compute (ALB + ASG)
-# -----------------------------------------------------------------------------
 module "compute" {
   source = "../../modules/compute"
 
@@ -143,16 +126,12 @@ module "compute" {
   min_size              = 2
   max_size              = 6
   desired_capacity      = 3
-  enable_https          = true
-  certificate_arn       = "" # TODO: Replace with ACM certificate ARN
+  certificate_arn       = "" # TODO: replace with ACM certificate ARN
   kms_key_arn           = module.security.kms_key_arn
 
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# EKS
-# -----------------------------------------------------------------------------
 module "eks" {
   source = "../../modules/eks"
 
@@ -172,36 +151,35 @@ module "eks" {
     }
   }
 
+  # lock down the control plane -- operators connect via VPN or SSM
+  cluster_endpoint_public_access  = false
+  cluster_endpoint_private_access = true
+
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# ECS
-# -----------------------------------------------------------------------------
 module "ecs" {
   source = "../../modules/ecs"
 
   project               = var.project
   environment           = var.environment
-  vpc_id                = module.networking.vpc_id
   private_subnet_ids    = module.networking.private_subnet_ids
   app_security_group_id = module.security.app_security_group_id
   execution_role_arn    = module.iam.ecs_execution_role_arn
   task_role_arn         = module.iam.ecs_task_role_arn
   kms_key_arn           = module.security.kms_key_arn
 
+  # ECS Exec disabled in prod -- operators use SSM instead
+  enable_ecs_exec = false
+
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# RDS
-# -----------------------------------------------------------------------------
 module "rds" {
   source = "../../modules/rds"
 
   project                      = var.project
   environment                  = var.environment
-  vpc_id                       = module.networking.vpc_id
   data_subnet_ids              = module.networking.data_subnet_ids
   db_security_group_id         = module.security.db_security_group_id
   engine                       = "postgres"
@@ -219,16 +197,16 @@ module "rds" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# Monitoring
-# -----------------------------------------------------------------------------
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  project               = var.project
-  environment           = var.environment
-  alarm_email_endpoints = [] # TODO: Add production alert email addresses
-  kms_key_arn           = module.security.kms_key_arn
+  project     = var.project
+  environment = var.environment
+
+  # REQUIRED: set actual email addresses before deploying
+  alarm_email_endpoints = var.alarm_emails
+
+  kms_key_arn = module.security.kms_key_arn
 
   alarms = {
     high-cpu = {
@@ -258,10 +236,7 @@ module "monitoring" {
   tags = local.common_tags
 }
 
-# -----------------------------------------------------------------------------
-# CloudFront (placeholder)
-# -----------------------------------------------------------------------------
-# Uncomment and configure when the S3 assets bucket or ALB origin is ready.
+# CloudFront -- uncomment when the S3 assets bucket or ALB origin is ready.
 #
 # module "cloudfront" {
 #   source = "../../modules/cloudfront"
@@ -270,7 +245,6 @@ module "monitoring" {
 #   environment        = var.environment
 #   origin_domain_name = module.s3.bucket_regional_domain_names["assets"]
 #   origin_type        = "s3"
-#   s3_bucket_arn      = module.s3.bucket_arns["assets"]
 #   aliases            = []                         # e.g. ["cdn.example.com"]
 #   acm_certificate_arn = ""                        # Must be in us-east-1
 #   price_class        = "PriceClass_200"
@@ -281,10 +255,7 @@ module "monitoring" {
 #   tags = local.common_tags
 # }
 
-# -----------------------------------------------------------------------------
-# Route53 (placeholder)
-# -----------------------------------------------------------------------------
-# Uncomment and configure when the domain and hosted zone are ready.
+# Route53 -- uncomment when the domain and hosted zone are ready.
 #
 # module "route53" {
 #   source = "../../modules/route53"
@@ -294,25 +265,8 @@ module "monitoring" {
 #   create_zone = false
 #   zone_id     = ""                                # Existing hosted zone ID
 #
-#   records = {
-#     # "app" = {
-#     #   type = "A"
-#     #   alias = {
-#     #     name                   = module.compute.alb_dns_name
-#     #     zone_id                = module.compute.alb_zone_id
-#     #     evaluate_target_health = true
-#     #   }
-#     # }
-#   }
-#
-#   health_checks = {
-#     # "app" = {
-#     #   fqdn          = "app.example.com"
-#     #   port          = 443
-#     #   type          = "HTTPS"
-#     #   resource_path = "/health"
-#     # }
-#   }
+#   records = {}
+#   health_checks = {}
 #
 #   tags = local.common_tags
 # }

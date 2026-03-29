@@ -1,16 +1,16 @@
 output "db_instance_endpoint" {
-  description = "Connection endpoint of the RDS instance."
-  value       = local.is_aurora ? "" : try(aws_db_instance.this[0].endpoint, "")
+  description = "Connection endpoint (host:port) of the RDS instance."
+  value       = aws_db_instance.this.endpoint
 }
 
 output "db_instance_address" {
   description = "Hostname of the RDS instance."
-  value       = local.is_aurora ? "" : try(aws_db_instance.this[0].address, "")
+  value       = aws_db_instance.this.address
 }
 
 output "db_instance_port" {
   description = "Port of the RDS instance."
-  value       = local.is_aurora ? "" : try(aws_db_instance.this[0].port, "")
+  value       = aws_db_instance.this.port
 }
 
 output "db_instance_name" {
@@ -20,7 +20,7 @@ output "db_instance_name" {
 
 output "db_instance_id" {
   description = "Identifier of the RDS instance."
-  value       = local.is_aurora ? "" : try(aws_db_instance.this[0].id, "")
+  value       = aws_db_instance.this.id
 }
 
 output "db_secret_arn" {

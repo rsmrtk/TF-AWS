@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.project))
-    error_message = "Project must start with a lowercase letter, contain only lowercase alphanumeric characters and hyphens, and be 2-21 characters long."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 chars, start with a letter, end with a letter or digit, lowercase alphanumeric and hyphens only."
   }
 }
 
@@ -16,11 +16,6 @@ variable "environment" {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "Environment must be one of: dev, staging, prod."
   }
-}
-
-variable "vpc_id" {
-  description = "ID of the VPC where the RDS instance will be deployed."
-  type        = string
 }
 
 variable "data_subnet_ids" {
@@ -39,8 +34,8 @@ variable "engine" {
   default     = "postgres"
 
   validation {
-    condition     = contains(["postgres", "mysql", "aurora-postgresql", "aurora-mysql"], var.engine)
-    error_message = "Engine must be one of: postgres, mysql, aurora-postgresql, aurora-mysql."
+    condition     = contains(["postgres", "mysql"], var.engine)
+    error_message = "Engine must be postgres or mysql. For Aurora, use a dedicated aurora module."
   }
 }
 
@@ -105,13 +100,13 @@ variable "backup_retention_period" {
 variable "deletion_protection" {
   description = "Enable deletion protection on the RDS instance."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "skip_final_snapshot" {
-  description = "Skip final snapshot when destroying the RDS instance."
+  description = "Skip final snapshot when destroying the RDS instance. Leave false for prod."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "kms_key_arn" {
@@ -135,6 +130,12 @@ variable "monitoring_interval" {
     condition     = contains([0, 1, 5, 10, 15, 30, 60], var.monitoring_interval)
     error_message = "Monitoring interval must be one of: 0, 1, 5, 10, 15, 30, 60."
   }
+}
+
+variable "parameter_group_family" {
+  description = "DB parameter group family override. Auto-derived from engine+version if empty."
+  type        = string
+  default     = ""
 }
 
 variable "parameters" {

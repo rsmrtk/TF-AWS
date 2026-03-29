@@ -8,6 +8,10 @@ on:
       - "environments/**"
       - "global/**"
 
+concurrency:
+  group: terraform-apply
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read

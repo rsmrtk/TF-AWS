@@ -1,6 +1,4 @@
-################################################################################
-# ECR Repositories
-################################################################################
+# --- ECR Repositories ---
 
 resource "aws_ecr_repository" "this" {
   for_each = var.repositories
@@ -18,18 +16,12 @@ resource "aws_ecr_repository" "this" {
     kms_key         = var.kms_key_arn != "" ? var.kms_key_arn : null
   }
 
-  tags = merge(
-    var.tags,
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-${each.key}-ecr"
-    },
-  )
+  tags = merge(var.tags, local.common_tags, {
+    Name = "${local.name_prefix}-${each.key}-ecr"
+  })
 }
 
-################################################################################
-# Lifecycle Policies
-################################################################################
+# Keep the last N tagged images, expire untagged after 14 days.
 
 resource "aws_ecr_lifecycle_policy" "this" {
   for_each = var.repositories
@@ -40,16 +32,14 @@ resource "aws_ecr_lifecycle_policy" "this" {
     rules = [
       {
         rulePriority = 1
-        description  = "Keep only the last ${each.value.max_image_count} tagged images"
+        description  = "Keep last ${each.value.max_image_count} tagged images"
         selection = {
           tagStatus     = "tagged"
           tagPrefixList = ["v"]
           countType     = "imageCountMoreThan"
           countNumber   = each.value.max_image_count
         }
-        action = {
-          type = "expire"
-        }
+        action = { type = "expire" }
       },
       {
         rulePriority = 2
@@ -60,17 +50,13 @@ resource "aws_ecr_lifecycle_policy" "this" {
           countUnit   = "days"
           countNumber = 14
         }
-        action = {
-          type = "expire"
-        }
+        action = { type = "expire" }
       },
     ]
   })
 }
 
-################################################################################
-# Repository Policies — Allow pulls from the same AWS account
-################################################################################
+# Allow same-account pulls
 
 data "aws_caller_identity" "current" {}
 
@@ -81,19 +67,17 @@ resource "aws_ecr_repository_policy" "this" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowPullFromSameAccount"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-        }
-        Action = [
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:BatchCheckLayerAvailability",
-        ]
-      },
-    ]
+    Statement = [{
+      Sid    = "AllowPullFromSameAccount"
+      Effect = "Allow"
+      Principal = {
+        AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      }
+      Action = [
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:BatchCheckLayerAvailability",
+      ]
+    }]
   })
 }

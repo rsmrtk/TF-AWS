@@ -1,7 +1,3 @@
-################################################################################
-# Networking
-################################################################################
-
 module "networking" {
   source = "../../modules/networking"
 
@@ -18,28 +14,19 @@ module "networking" {
   tags = local.common_tags
 }
 
-################################################################################
-# Security
-################################################################################
-
 module "security" {
   source = "../../modules/security"
 
   project     = var.project
   environment = var.environment
   vpc_id      = module.networking.vpc_id
-  vpc_cidr    = module.networking.vpc_cidr
-
-  enable_waf = true
-  waf_mode   = "count"
+  enable_waf  = true
+  waf_mode    = "count"
 
   tags = local.common_tags
 }
 
-################################################################################
-# IAM
-################################################################################
-
+# No Lambda module in this environment, so skip the Lambda role.
 module "iam" {
   source = "../../modules/iam"
 
@@ -49,17 +36,13 @@ module "iam" {
   create_ec2_role           = true
   create_ecs_task_role      = true
   create_ecs_execution_role = true
-  create_lambda_role        = true
+  create_lambda_role        = false
 
   kms_key_arn    = module.security.kms_key_arn
   s3_bucket_arns = values(module.s3.bucket_arns)
 
   tags = local.common_tags
 }
-
-################################################################################
-# S3
-################################################################################
 
 module "s3" {
   source = "../../modules/s3"
@@ -98,10 +81,6 @@ module "s3" {
   tags = local.common_tags
 }
 
-################################################################################
-# ECR
-################################################################################
-
 module "ecr" {
   source = "../../modules/ecr"
 
@@ -124,10 +103,6 @@ module "ecr" {
 
   tags = local.common_tags
 }
-
-################################################################################
-# Compute (EC2 / ASG / ALB)
-################################################################################
 
 module "compute" {
   source = "../../modules/compute"
@@ -153,10 +128,6 @@ module "compute" {
 
   tags = local.common_tags
 }
-
-################################################################################
-# EKS
-################################################################################
 
 module "eks" {
   source = "../../modules/eks"
@@ -188,17 +159,12 @@ module "eks" {
   tags = local.common_tags
 }
 
-################################################################################
-# ECS
-################################################################################
-
 module "ecs" {
   source = "../../modules/ecs"
 
   project     = var.project
   environment = var.environment
 
-  vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
 
   app_security_group_id = module.security.app_security_group_id
@@ -206,15 +172,11 @@ module "ecs" {
   execution_role_arn = module.iam.ecs_execution_role_arn
   task_role_arn      = module.iam.ecs_task_role_arn
 
-  enable_execute_command = true
-  kms_key_arn            = module.security.kms_key_arn
+  enable_ecs_exec = true
+  kms_key_arn     = module.security.kms_key_arn
 
   tags = local.common_tags
 }
-
-################################################################################
-# RDS
-################################################################################
 
 module "rds" {
   source = "../../modules/rds"
@@ -222,7 +184,6 @@ module "rds" {
   project     = var.project
   environment = var.environment
 
-  vpc_id               = module.networking.vpc_id
   data_subnet_ids      = module.networking.data_subnet_ids
   db_security_group_id = module.security.db_security_group_id
 
@@ -245,19 +206,13 @@ module "rds" {
   tags = local.common_tags
 }
 
-################################################################################
-# Monitoring
-################################################################################
-
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  project     = var.project
-  environment = var.environment
-
+  project               = var.project
+  environment           = var.environment
   alarm_email_endpoints = []
-
-  kms_key_arn = module.security.kms_key_arn
+  kms_key_arn           = module.security.kms_key_arn
 
   tags = local.common_tags
 }

@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]{2,21}$", var.project))
-    error_message = "Project must be 2-21 characters, lowercase alphanumeric and hyphens only."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 chars, start with a letter, end with a letter or digit, lowercase alphanumeric and hyphens only."
   }
 }
 
@@ -38,7 +38,7 @@ variable "buckets" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of the KMS key for S3 encryption. If empty, uses aws:kms with the default AWS managed key."
+  description = "KMS key ARN for S3 encryption. Falls back to the default AWS managed key when empty."
   type        = string
   default     = ""
 }

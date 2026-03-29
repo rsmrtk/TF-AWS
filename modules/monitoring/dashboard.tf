@@ -1,7 +1,4 @@
-################################################################################
-# CloudWatch Dashboard
-################################################################################
-
+# Lay widgets out in a 2-column grid (each widget 12 units wide, 6 tall).
 resource "aws_cloudwatch_dashboard" "this" {
   count = length(var.dashboard_widgets) > 0 ? 1 : 0
 

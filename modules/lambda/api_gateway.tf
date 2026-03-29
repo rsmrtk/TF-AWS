@@ -1,6 +1,4 @@
-################################################################################
-# API Gateway v2 (HTTP API)
-################################################################################
+# --- API Gateway v2 (HTTP API) ---
 
 resource "aws_apigatewayv2_api" "this" {
   count = local.create_apigw ? 1 : 0
@@ -8,14 +6,23 @@ resource "aws_apigatewayv2_api" "this" {
   name          = var.api_gateway_name != "" ? var.api_gateway_name : "${local.name_prefix}-api"
   protocol_type = "HTTP"
 
+  # Only set CORS when origins are explicitly configured
+  dynamic "cors_configuration" {
+    for_each = length(var.cors_allowed_origins) > 0 ? [1] : []
+    content {
+      allow_origins = var.cors_allowed_origins
+      allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allow_headers = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key"]
+      max_age       = 3600
+    }
+  }
+
   tags = merge(local.common_tags, {
     Name = var.api_gateway_name != "" ? var.api_gateway_name : "${local.name_prefix}-api"
   })
 }
 
-################################################################################
-# Default Stage with Auto Deploy
-################################################################################
+# Default stage -- auto-deploys on every change
 
 resource "aws_apigatewayv2_stage" "default" {
   count = local.create_apigw ? 1 : 0
@@ -44,9 +51,7 @@ resource "aws_apigatewayv2_stage" "default" {
   })
 }
 
-################################################################################
-# Integrations (one per function)
-################################################################################
+# One integration per function
 
 resource "aws_apigatewayv2_integration" "this" {
   for_each = local.create_apigw ? var.functions : {}
@@ -58,21 +63,18 @@ resource "aws_apigatewayv2_integration" "this" {
   payload_format_version = "2.0"
 }
 
-################################################################################
 # Routes: ANY /{function_name}/{proxy+}
-################################################################################
 
 resource "aws_apigatewayv2_route" "this" {
   for_each = local.create_apigw ? var.functions : {}
 
-  api_id    = aws_apigatewayv2_api.this[0].id
-  route_key = "ANY /${each.key}/{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.this[each.key].id}"
+  api_id             = aws_apigatewayv2_api.this[0].id
+  route_key          = "ANY /${each.key}/{proxy+}"
+  target             = "integrations/${aws_apigatewayv2_integration.this[each.key].id}"
+  authorization_type = var.api_authorization_type
 }
 
-################################################################################
-# Lambda Permissions for API Gateway Invocation
-################################################################################
+# Allow API Gateway to invoke each function
 
 resource "aws_lambda_permission" "api_gateway" {
   for_each = local.create_apigw ? var.functions : {}
@@ -83,10 +85,6 @@ resource "aws_lambda_permission" "api_gateway" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.this[0].execution_arn}/*/*"
 }
-
-################################################################################
-# CloudWatch Log Group for API Gateway Access Logs
-################################################################################
 
 resource "aws_cloudwatch_log_group" "api_gateway" {
   count = local.create_apigw ? 1 : 0

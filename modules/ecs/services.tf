@@ -1,6 +1,3 @@
-# -----------------------------------------------------------------------------
-# CloudWatch Log Groups
-# -----------------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "services" {
   for_each = var.services
 
@@ -11,9 +8,6 @@ resource "aws_cloudwatch_log_group" "services" {
   tags = merge(local.common_tags, var.tags)
 }
 
-# -----------------------------------------------------------------------------
-# Task Definitions
-# -----------------------------------------------------------------------------
 resource "aws_ecs_task_definition" "services" {
   for_each = var.services
 
@@ -66,9 +60,9 @@ resource "aws_ecs_task_definition" "services" {
   tags = merge(local.common_tags, var.tags)
 }
 
-# -----------------------------------------------------------------------------
-# ECS Services
-# -----------------------------------------------------------------------------
+# Note: launch_type is intentionally omitted. It is mutually exclusive with
+# capacity_provider_strategy, and the cluster-level default strategy handles
+# Fargate / Fargate Spot allocation for us.
 resource "aws_ecs_service" "services" {
   for_each = var.services
 
@@ -76,9 +70,8 @@ resource "aws_ecs_service" "services" {
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.services[each.key].arn
   desired_count   = each.value.desired_count
-  launch_type     = "FARGATE"
 
-  enable_execute_command = var.enable_execute_command
+  enable_execute_command = var.enable_ecs_exec
 
   network_configuration {
     subnets         = var.private_subnet_ids
@@ -95,6 +88,13 @@ resource "aws_ecs_service" "services" {
     }
   }
 
+  # Circuit breaker rolls back automatically on repeated task failures
+  # instead of looping through the full deployment timeout.
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
@@ -105,7 +105,4 @@ resource "aws_ecs_service" "services" {
   tags = merge(local.common_tags, var.tags)
 }
 
-# -----------------------------------------------------------------------------
-# Data Sources
-# -----------------------------------------------------------------------------
 data "aws_region" "current" {}

@@ -15,3 +15,9 @@ variable "aws_region" {
   type        = string
   default     = "eu-central-1"
 }
+
+variable "alarm_emails" {
+  description = "Email addresses for CloudWatch alarm notifications."
+  type        = list(string)
+  default     = []
+}

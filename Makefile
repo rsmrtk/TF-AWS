@@ -41,7 +41,7 @@ validate: ## Validate Terraform configuration for ENV
 validate-all: ## Validate all environments
 	@for env in dev staging prod; do \
 		echo "==> Validating $$env..."; \
-		cd environments/$$env && terraform init -backend=false && terraform validate && cd ../..; \
+		(cd environments/$$env && terraform init -backend=false -input=false > /dev/null 2>&1 && terraform validate) || exit 1; \
 	done
 
 lint: ## Run TFLint

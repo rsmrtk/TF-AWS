@@ -1,11 +1,16 @@
-################################################################################
-# Route53 Hosted Zone
-################################################################################
+# ---- Hosted Zone ----
 
 resource "aws_route53_zone" "this" {
   count = var.create_zone ? 1 : 0
 
   name = var.zone_name
+
+  lifecycle {
+    precondition {
+      condition     = var.zone_name != ""
+      error_message = "zone_name must be provided when creating a hosted zone."
+    }
+  }
 
   tags = merge(
     var.tags,
@@ -16,9 +21,7 @@ resource "aws_route53_zone" "this" {
   )
 }
 
-################################################################################
-# Route53 Records
-################################################################################
+# ---- DNS Records ----
 
 resource "aws_route53_record" "this" {
   for_each = var.records
@@ -27,11 +30,17 @@ resource "aws_route53_record" "this" {
   name    = each.key
   type    = each.value.type
 
-  # Standard records with TTL (used when alias is not set).
+  # Standard records need an explicit TTL; alias records get it from the target.
   ttl     = each.value.alias == null ? each.value.ttl : null
   records = each.value.alias == null ? each.value.records : null
 
-  # Alias records (used when alias is set).
+  # Attach the health check when the caller provides a matching key.
+  health_check_id = (
+    each.value.health_check_key != null
+    ? aws_route53_health_check.this[each.value.health_check_key].id
+    : null
+  )
+
   dynamic "alias" {
     for_each = each.value.alias != null ? [each.value.alias] : []
 
@@ -43,9 +52,7 @@ resource "aws_route53_record" "this" {
   }
 }
 
-################################################################################
-# Route53 Health Checks
-################################################################################
+# ---- Health Checks ----
 
 resource "aws_route53_health_check" "this" {
   for_each = var.health_checks

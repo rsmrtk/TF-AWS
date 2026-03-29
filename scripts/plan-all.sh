@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run terraform plan for all environments.
+# NOTE: Running with -backend=false for offline validation. Plans run against
+# empty state, so resource counts will always show additions. For real plans,
+# use `make plan ENV=<env>` with backend credentials configured.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}/.."

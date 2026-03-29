@@ -1,14 +1,10 @@
-###############################################################################
-# Project & Environment
-###############################################################################
-
 variable "project" {
   description = "Project name used in resource naming."
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{1,20}$", var.project))
-    error_message = "Project must start with a lowercase letter, contain only lowercase alphanumeric characters and hyphens, and be between 2 and 21 characters."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 chars, start with a letter, end with a letter or digit, only lowercase alphanumeric and hyphens."
   }
 }
 
@@ -22,9 +18,7 @@ variable "environment" {
   }
 }
 
-###############################################################################
-# Networking
-###############################################################################
+# -- Networking ---------------------------------------------------------------
 
 variable "vpc_id" {
   description = "ID of the VPC where resources will be created."
@@ -51,9 +45,7 @@ variable "app_security_group_id" {
   type        = string
 }
 
-###############################################################################
-# Instance Configuration
-###############################################################################
+# -- Instance configuration ---------------------------------------------------
 
 variable "instance_type" {
   description = "EC2 instance type for the launch template."
@@ -79,9 +71,7 @@ variable "instance_profile_name" {
   default     = ""
 }
 
-###############################################################################
-# Auto Scaling
-###############################################################################
+# -- Auto Scaling -------------------------------------------------------------
 
 variable "min_size" {
   description = "Minimum number of instances in the ASG."
@@ -101,9 +91,7 @@ variable "desired_capacity" {
   default     = 1
 }
 
-###############################################################################
-# Health Check
-###############################################################################
+# -- Health check -------------------------------------------------------------
 
 variable "health_check_path" {
   description = "Path for the ALB target group health check."
@@ -117,25 +105,23 @@ variable "health_check_port" {
   default     = 80
 }
 
-###############################################################################
-# HTTPS / TLS
-###############################################################################
-
-variable "enable_https" {
-  description = "Whether to create an HTTPS listener on the ALB."
-  type        = bool
-  default     = false
-}
+# -- HTTPS / TLS --------------------------------------------------------------
 
 variable "certificate_arn" {
-  description = "ARN of the ACM certificate for the HTTPS listener."
+  description = "ARN of the ACM certificate for the HTTPS listener. When set, HTTP traffic is redirected to HTTPS automatically."
   type        = string
   default     = ""
 }
 
-###############################################################################
-# Encryption
-###############################################################################
+# -- ALB access logs ----------------------------------------------------------
+
+variable "enable_alb_access_logs" {
+  description = "Enable ALB access logging to S3. Creates the bucket and wires the policy only when true."
+  type        = bool
+  default     = true
+}
+
+# -- Encryption ---------------------------------------------------------------
 
 variable "kms_key_arn" {
   description = "ARN of the KMS key for EBS volume encryption. Uses the default AWS managed key when empty."
@@ -143,19 +129,13 @@ variable "kms_key_arn" {
   default     = ""
 }
 
-###############################################################################
-# User Data
-###############################################################################
+# -- User Data ----------------------------------------------------------------
 
 variable "user_data" {
   description = "User data script to run on instance launch."
   type        = string
   default     = ""
 }
-
-###############################################################################
-# Tags
-###############################################################################
 
 variable "tags" {
   description = "Additional tags to apply to all resources."

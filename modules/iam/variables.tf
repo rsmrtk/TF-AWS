@@ -3,8 +3,8 @@ variable "project" {
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]{2,21}$", var.project))
-    error_message = "Project must be 2-21 characters, lowercase alphanumeric and hyphens only."
+    condition     = can(regex("^[a-z][a-z0-9-]{1,20}[a-z0-9]$", var.project))
+    error_message = "Project must be 3-22 lowercase alphanumeric characters or hyphens, starting with a letter."
   }
 }
 
@@ -40,6 +40,12 @@ variable "create_lambda_role" {
   description = "Whether to create the Lambda execution IAM role."
   type        = bool
   default     = true
+}
+
+variable "ecs_task_role_policy_arns" {
+  description = "List of IAM policy ARNs to attach to the ECS task role."
+  type        = list(string)
+  default     = []
 }
 
 variable "kms_key_arn" {

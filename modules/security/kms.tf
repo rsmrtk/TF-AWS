@@ -1,6 +1,4 @@
-################################################################################
-# KMS Key — General Encryption
-################################################################################
+# General-purpose KMS key shared across services (RDS, S3, SQS, etc.)
 
 data "aws_caller_identity" "current" {}
 

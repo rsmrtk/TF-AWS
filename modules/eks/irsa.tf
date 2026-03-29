@@ -1,7 +1,3 @@
-################################################################################
-# OIDC Provider
-################################################################################
-
 locals {
   oidc_issuer_url = replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")
 }
@@ -18,10 +14,9 @@ resource "aws_iam_openid_connect_provider" "cluster" {
   tags = merge(local.common_tags, var.tags)
 }
 
-################################################################################
-# IRSA Role: EBS CSI Driver
-################################################################################
-
+# IRSA role for the EBS CSI driver.
+# Scoped to the specific service account so only the CSI controller pod
+# can assume this role -- not any other workload in the cluster.
 resource "aws_iam_role" "ebs_csi_driver" {
   name = "${local.name_prefix}-eks-ebs-csi-driver-role"
 
@@ -29,11 +24,9 @@ resource "aws_iam_role" "ebs_csi_driver" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Principal = {
-          Federated = aws_iam_openid_connect_provider.cluster.arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect    = "Allow"
+        Principal = { Federated = aws_iam_openid_connect_provider.cluster.arn }
+        Action    = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
             "${local.oidc_issuer_url}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"

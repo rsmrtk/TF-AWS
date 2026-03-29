@@ -1,6 +1,4 @@
-################################################################################
-# Lambda Functions
-################################################################################
+# --- Lambda Functions ---
 
 resource "aws_lambda_function" "this" {
   for_each = var.functions
@@ -13,51 +11,45 @@ resource "aws_lambda_function" "this" {
   memory_size   = each.value.memory_size
   timeout       = each.value.timeout
 
-  # Source code: local file or S3
-  filename         = each.value.filename != "" ? each.value.filename : null
-  source_code_hash = each.value.filename != "" ? filebase64sha256(each.value.filename) : null
-  s3_bucket        = each.value.s3_bucket != "" ? each.value.s3_bucket : null
-  s3_key           = each.value.s3_key != "" ? each.value.s3_key : null
+  # Deploy from local zip or S3
+  filename          = each.value.filename != "" ? each.value.filename : null
+  s3_bucket         = each.value.s3_bucket != "" ? each.value.s3_bucket : null
+  s3_key            = each.value.s3_key != "" ? each.value.s3_key : null
+  s3_object_version = each.value.s3_object_version != "" ? each.value.s3_object_version : null
 
-  # Environment variables merged with defaults
+  # Hash triggers redeployment on code changes. For S3-based deploys, callers
+  # should pass source_code_hash (e.g. the S3 object etag) explicitly.
+  source_code_hash = coalesce(
+    each.value.source_code_hash != "" ? each.value.source_code_hash : null,
+    each.value.filename != "" ? filebase64sha256(each.value.filename) : null,
+  )
+
   environment {
-    variables = merge(
-      {
-        ENVIRONMENT = var.environment
-        PROJECT     = var.project
-      },
-      each.value.environment_variables
-    )
+    variables = merge({
+      ENVIRONMENT = var.environment
+      PROJECT     = var.project
+    }, each.value.environment_variables)
   }
 
-  # KMS encryption for environment variables
   kms_key_arn = var.kms_key_arn != "" ? var.kms_key_arn : null
 
-  # VPC configuration (conditional)
   dynamic "vpc_config" {
     for_each = each.value.vpc_config != null ? [each.value.vpc_config] : []
-
     content {
       subnet_ids         = vpc_config.value.subnet_ids
       security_group_ids = vpc_config.value.security_group_ids
     }
   }
 
-  # Concurrency
   reserved_concurrent_executions = each.value.reserved_concurrent_executions
+  layers                         = each.value.layers
 
-  # Layers
-  layers = each.value.layers
-
-  # X-Ray tracing
   tracing_config {
     mode = "Active"
   }
 
-  # Dead letter config (optional SNS topic)
   dynamic "dead_letter_config" {
-    for_each = try(aws_sns_topic.dlq[each.key], null) != null ? [1] : []
-
+    for_each = var.enable_dlq ? [1] : []
     content {
       target_arn = aws_sns_topic.dlq[each.key].arn
     }
@@ -69,12 +61,11 @@ resource "aws_lambda_function" "this" {
   })
 }
 
-################################################################################
-# Dead Letter Queue (SNS Topic per function)
-################################################################################
+# DLQ topics -- only created when enable_dlq is true.
+# Wire up subscriptions (email, SQS, etc.) outside this module.
 
 resource "aws_sns_topic" "dlq" {
-  for_each = var.functions
+  for_each = var.enable_dlq ? var.functions : {}
 
   name = "${local.name_prefix}-${each.key}-dlq"
 
@@ -84,9 +75,7 @@ resource "aws_sns_topic" "dlq" {
   })
 }
 
-################################################################################
-# CloudWatch Log Groups
-################################################################################
+# Log groups with explicit retention
 
 resource "aws_cloudwatch_log_group" "lambda" {
   for_each = var.functions
